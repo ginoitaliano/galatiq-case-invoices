@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+.env.local
+.env.production
+node_modules/

@@ -1,0 +1,56 @@
+{
+  "timestamp": "2026-03-09T10:50:01.260060",
+  "total": 4,
+  "passed": 4,
+  "failed": 0,
+  "cases": [
+    {
+      "invoice_number": "INV-1001",
+      "description": "Clean invoice under $10K \u2014 should auto-approve",
+      "category": "happy_path",
+      "passed": true,
+      "actual_stage": "completed",
+      "actual_flags": [],
+      "failures": [],
+      "duration_seconds": 9.04,
+      "error": null
+    },
+    {
+      "invoice_number": "INV-1002",
+      "description": "Quantity exceeds available stock \u2014 should reject",
+      "category": "validation_failure",
+      "passed": true,
+      "actual_stage": "rejected",
+      "actual_flags": [
+        "is_quantity_mismatch"
+      ],
+      "failures": [],
+      "duration_seconds": 0.0,
+      "error": null
+    },
+    {
+      "invoice_number": "INV-1003",
+      "description": "Zero stock item FakeItem \u2014 should reject",
+      "category": "validation_failure",
+      "passed": true,
+      "actual_stage": "rejected",
+      "actual_flags": [
+        "is_out_of_stock"
+      ],
+      "failures": [],
+      "duration_seconds": 0.02,
+      "error": null
+    },
+    {
+      "invoice_number": "INV-1004",
+      "description": "Invoice over $10K threshold \u2014 should escalate to VP",
+      "category": "escalation",
+      "passed": true,
+      "actual_stage": "awaiting_vp",
+      "actual_flags": [],
+      "failures": [],
+      "duration_seconds": 0.01,
+      "error": null
+    }
+  ]
+}
