@@ -54,8 +54,14 @@ def extract_text(file_path: str) -> str:
 
 
 
-def parse_invoice_with_llm(raw_text: str) -> dict:
-    """Send raw text to Claude, get structured JSON back."""
+def parse_invoice_with_llm(raw_text: str, file_path: str) -> dict:
+    """Parse Structured formats directly, unstructured via LLM"""
+    path = Path(file_path)
+
+    #JSON is structured, parse directly, no LLM needed:
+    if path.suffix.lower() == ".json":
+        return json.loads(raw_text)
+
     response = call_llm(
         persona=INGESTION_PERSONA,
         user_message=f"Extract invoice data from this document:\n\n{raw_text}"
@@ -80,7 +86,7 @@ def ingestion_agent(state: InvoiceState) -> InvoiceState:
             raise ValueError(raw_text)
 
         #  LLM parses raw text into structured dict
-        extracted = parse_invoice_with_llm(raw_text)
+        extracted = parse_invoice_with_llm(raw_text, file_path)
 
         #  Pydantic validates dict into Invoice object
         invoice = Invoice(
