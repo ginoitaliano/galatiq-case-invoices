@@ -6,13 +6,18 @@ from config import settings
 from utils.llm_utils import invoke_llm  
 
 def get_llm():
-
     """
-    Galatiq's core stack uses Grok. Fall back to
-    claude if needed. swapping providers is one config change
+    Primary: LightningAI Model API
+    Fallback 1: Grok
+    Fallback 2: Claude
     """
-    
-    if settings.grok_api_key:
+    if settings.lightning_api_key:
+        return ChatOpenAI(
+            model="meta-llama/Llama-3.3-70B-Instruct",  
+            base_url="https://lightning.ai/api/v1/",
+            api_key=f"{settings.lightning_api_key}/ginoitaliano/experiment-lifecycle-project"
+        )
+    elif settings.grok_api_key:
         return ChatOpenAI(
             model=settings.grok_model,
             base_url="https://api.x.ai/v1",
@@ -24,10 +29,7 @@ def get_llm():
             api_key=settings.anthropic_api_key
         )
     else:
-        raise ValueError(
-            "No LLM API key found. Set GROK_API_KEY or ANTHROPIC_API_KEY in .env"
-        )
-
+        raise ValueError("No LLM API key found.")
 
 llm = get_llm()
 

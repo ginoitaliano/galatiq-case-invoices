@@ -9,6 +9,8 @@ BASE_DIR = Path(__file__).parent.parent
 ENV_FILE = Path(__file__).parent / ".env"
 
 class Settings(BaseSettings):
+    #Lightening AI:
+    lightning_api_key: Optional[str] = None
     # Grok
     grok_api_key: Optional[str] = None
     grok_model: str = "grok-3"
