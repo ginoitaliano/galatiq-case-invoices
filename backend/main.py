@@ -4,7 +4,7 @@ import sys
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api import invoices, approvals, metrics
-from services.invoice_service import run_pipeline
+
 
 app = FastAPI(title="Galatiq Case: Invoice Processing Automation", version="1.0.0")
 
@@ -15,6 +15,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 app.include_router(invoices.router, prefix="/api/v1")
 app.include_router(approvals.router, prefix="/api/v1")
 app.include_router(metrics.router, prefix="/api/v1")
@@ -22,7 +26,7 @@ app.include_router(metrics.router, prefix="/api/v1")
 
 def run_cli(invoice_path: str):
     """Run a single invoice through the pipeline from the command line."""
-    
+    from services.invoice_service import run_pipeline
 
     print(f"\n{'='*60}")
     print(f"  GALATIQ — INVOICE PROCESSOR")
