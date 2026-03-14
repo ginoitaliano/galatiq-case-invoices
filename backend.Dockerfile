@@ -38,4 +38,4 @@ ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
 
 # Initialise the inventory DB, then start Uvicorn
-CMD ["sh", "-c", "python data/setup_inventory.py && uvicorn backend.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "python data/setup_inventory.py && uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir backend"]
