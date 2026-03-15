@@ -1,14 +1,49 @@
 # backend/services/invoice_service.py
-from datetime import datetime
 from typing import Optional
 from agents.graph import invoice_graph
 from agents.state import InvoiceState
+import sqlite3
+import json
+from pathlib import Path
+from contextlib import contextmanager
 
 
-#In production, this would be the replaced with Postgres queries
+DB_PATH = Path(__file__).parent.parent.parent / "data" / "invoices.db"
 
-invoice_store: dict = {}
+@contextmanager
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        yield conn
+        conn.commit()
+    finally:
+        conn.close()
 
+
+def init_db():
+    with get_db() as conn:
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS invoices (
+                file_path TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """) 
+
+def save_invoice(file_path: str, result: dict):
+    """Save invoice result to SQLite."""
+    with get_db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO invoices (file_path, data) VALUES (?,?),"
+        (file_path, json.dumps(result, default=str))
+    )
+
+def load_all_invoices() -> dict:
+    """Load all invoices from SQLite."""
+    with get_db() as conn:
+        rows = conn.execute("SELECT file_path, data FROM invoices").fetchall()
+        return {row[0]: json.loads(row[1]) for row in rows}
+   
 
 def build_initial_state(file_path: str) -> InvoiceState:
     """Build a clean initial state for a new invoice"""
@@ -35,33 +70,30 @@ def build_initial_state(file_path: str) -> InvoiceState:
         "error": None
     }
 
-
 def run_pipeline(file_path: str) -> dict:
-    """
-    Run the full invoice pipeline.
-    Called as a background task from the API layer.
-    """
+    """Run the full invoice pipeline."""
+    init_db()
     initial_state = build_initial_state(file_path)
     result = invoice_graph.invoke(initial_state)
-    invoice_store[file_path] = result
+    save_invoice(file_path, result)
     return result
-
 
 def get_all_invoices() -> list:
     """Return summary of all processed invoices."""
+    invoice_store = load_all_invoices()
     return [
         {
             "file_path": fp,
             "invoice_number": (
-                result.get("invoice").invoice_number
+                result.get("invoice", {}).get("invoice_number", "UNKNOWN")
                 if result.get("invoice") else "UNKNOWN"
             ),
             "vendor": (
-                result.get("invoice").vendor.name
+                result.get("invoice", {}).get("vendor", {}).get("name", "UNKNOWN")
                 if result.get("invoice") else "UNKNOWN"
             ),
             "amount": (
-                result.get("invoice").total
+                result.get("invoice", {}).get("total", 0)
                 if result.get("invoice") else 0
             ),
             "current_stage": result.get("current_stage"),
@@ -72,29 +104,24 @@ def get_all_invoices() -> list:
         for fp, result in invoice_store.items()
     ]
 
-
 def get_invoice_by_number(invoice_number: str) -> Optional[dict]:
     """Return full details for a specific invoice."""
+    invoice_store = load_all_invoices()
     for fp, result in invoice_store.items():
         invoice = result.get("invoice")
-        if invoice and invoice.invoice_number == invoice_number:
+        if invoice and invoice.get("invoice_number") == invoice_number:
             return {
-                "invoice": invoice.dict() if invoice else None,
+                "invoice": invoice,
                 "current_stage": result.get("current_stage"),
                 "validation_passed": result.get("validation_passed"),
-                "validation_flags": (
-                    result.get("validation_flags").dict()
-                    if result.get("validation_flags") else None
-                ),
+                "validation_flags": result.get("validation_flags"),
                 "finance_reasoning": result.get("finance_reasoning"),
                 "requires_vp_approval": result.get("requires_vp_approval"),
                 "payment_status": result.get("payment_status"),
                 "payment_reference": result.get("payment_reference"),
                 "rejection_reason": result.get("rejection_reason"),
-                "audit_trail": [
-                    entry.dict()
-                    for entry in result.get("audit_trail", [])
-                ],
+                "audit_trail": result.get("audit_trail", []),
                 "error": result.get("error")
             }
+
     return None
