@@ -1,25 +1,21 @@
 #backend/models/invoice.py
 from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional, List
-from enum import Enum
 import pycountry
-
-
-class PaymentTerms(str,Enum):
-  NET_30 = "Net 30"
-  NET_60 = "Net 60"
-  NET_90 = "Net 90"
-  NET_120 = "Net 120"
-  NET_180 = "Net 180"
-  NET_360 = "Net 360"
 
 
 class LineItem(BaseModel):
     item: str
     quantity: int
     unit_price: float
-    amount: float
+    amount: Optional[float] = None
     note: Optional[str] = None
+
+    @model_validator(mode="after")
+    def calculate_amount(self):
+        if self.amount is None:
+            self.amount = self.quantity * self.unit_price
+        return self
 
 class Vendor(BaseModel):
     name: str
@@ -35,13 +31,13 @@ class Invoice(BaseModel):
     tax_rate: Optional[float] = None
     tax_amount: Optional[float] = None
     total: float
-    payment_terms: Optional[PaymentTerms] = None
+    payment_terms: Optional[str] = None
     notes: Optional[str] = None
     currency: str = "USD"
    
     @field_validator("currency")
     @classmethod
-    def validate_currency(cls,v):
+    def validate_currency(cls, v):
         valid_currencies = {c.alpha_3 for c in pycountry.currencies}
         if v.upper() not in valid_currencies:
             raise ValueError(f"{v} is not a valid ISO 4217 currency code")
@@ -66,4 +62,4 @@ class InvoiceResponse(BaseModel):
     tax_amount: Optional[float] = None
     total: float
     currency: str
-    payment_terms: Optional[PaymentTerms] = None
+    payment_terms: Optional[str] = None
