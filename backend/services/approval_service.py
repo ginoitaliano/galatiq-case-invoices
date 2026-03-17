@@ -3,26 +3,26 @@ from datetime import datetime
 from typing import Optional
 from agents.payment_agent import payment_agent
 from agents.rejection_handler import rejection_handler
-from services.invoice_service import invoice_store
+from services.invoice_service import load_all_invoices, save_invoice
 
 
 def get_pending_approvals() -> list:
     """Return all invoices currently awaiting VP approval."""
+    invoice_store = load_all_invoices()
     pending = []
     for fp, result in invoice_store.items():
         if result.get("current_stage") == "awaiting_vp":
             invoice = result.get("invoice")
             pending.append({
                 "invoice_number": (
-                    invoice.invoice_number if invoice else "UNKNOWN"
+                    invoice.get("invoice_number") if invoice else "UNKNOWN"
                 ),
-                "vendor": invoice.vendor.name if invoice else "UNKNOWN",
-                "amount": invoice.total if invoice else 0,
+                "vendor": (
+                    invoice.get("vendor", {}).get("name") if invoice else "UNKNOWN"
+                ),
+                "amount": invoice.get("total", 0) if invoice else 0,
                 "finance_reasoning": result.get("finance_reasoning"),
-                "validation_flags": (
-                    result.get("validation_flags").dict()
-                    if result.get("validation_flags") else None
-                ),
+                "validation_flags": result.get("validation_flags"),
                 "file_path": fp
             })
     return pending
@@ -33,15 +33,14 @@ def process_vp_decision(
     decision: str,
     note: str = ""
 ) -> Optional[dict]:
-    """
-    Record VP decision and trigger payment or rejection.
-    Returns updated result or None if invoice not found.
-    """
+    """Record VP decision and trigger payment or rejection."""
+    invoice_store = load_all_invoices()
+
     # find the invoice
     target_fp = None
     for fp, result in invoice_store.items():
         invoice = result.get("invoice")
-        if invoice and invoice.invoice_number == invoice_number:
+        if invoice and invoice.get("invoice_number") == invoice_number:
             target_fp = fp
             break
 
@@ -63,8 +62,8 @@ def process_vp_decision(
         result = rejection_handler(result)
         result["current_stage"] = "rejected"
 
-    # save updated result
-    invoice_store[target_fp] = result
+    # save updated result to SQLite
+    save_invoice(target_fp, result)
 
     return {
         "invoice_number": invoice_number,
